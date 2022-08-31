@@ -28,6 +28,9 @@ for _ in range(L):
     Z = np.matmul(Z, Xu)
 Z1: np.ndarray = Z / np.power(T, L/2)
 ei = np.linalg.eigvals(Z1)
+msr = np.mean(np.abs(ei))
+
+print(msr)
 
 plt.scatter(ei.real, ei.imag, 2, 'r')
 plt.axis('equal')
