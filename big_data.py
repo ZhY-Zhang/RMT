@@ -10,6 +10,8 @@ from scipy.stats import unitary_group
 """
 This file draws the relativity of the arguments (MSR) in the data file.
 """
+# TODO: 试试在 csv 文件读取得到的 raw_data 里加上噪音
+# TODO: 做一个矩阵色块的动效
 
 warnings.filterwarnings('ignore')
 
@@ -22,9 +24,18 @@ MEASUREMENTS = [
 ]
 # data process
 START_TIME = pd.Timestamp(2020, 6, 1)
-STOP_TIME = pd.Timestamp(2020, 12, 31)
-TIME_STEP = pd.Timedelta(hours=1)
-WINDOW_LENGTH = 256
+STOP_TIME = pd.Timestamp(2021, 7, 1)
+WINDOW_PERIOD = pd.Timedelta(days=14)
+STATUS_LIST = ["T_infrared", "T_A", "T_B", "T_C"]
+FACTOR_LIST = ["T_env"]
+DUP_STATUS: int = 8
+# calculate parameters
+STATUS_INDICES = np.array([MEASUREMENTS.index(m) for m in STATUS_LIST])
+FACTOR_INDICES = np.array([MEASUREMENTS.index(m) for m in FACTOR_LIST])
+WINDOW_LENGTH = 2 * DUP_STATUS * len(STATUS_INDICES)
+TIME_STEP = WINDOW_PERIOD / WINDOW_LENGTH
+N_SAMPLES = int((STOP_TIME - START_TIME) / TIME_STEP + 1)
+print("Window Length:", WINDOW_LENGTH)
 
 
 def synchronize_data(file_directory: Path, file_names: List[str], start_time: pd.Timestamp, stop_time: pd.Timestamp,
@@ -51,14 +62,17 @@ def get_window(sync_data: np.ndarray, T: int) -> np.ndarray:
     """
     This function (generator) is used to generate the windowed data. The shape
     of synchronized data "sync_data" is (N, N_SAMPLES). "T" is the length of
-    the window. It generates totally (N_AMPLES - T + 1) windows.
+    the window. It generates totally (N_SAMPLES - T + 1) windows.
     """
     num_windows = sync_data.shape[1] - T + 1
+    if num_windows <= 0:
+        raise ValueError("The synchronized data samples are not enough to analyze. \
+Please change STOP_DATE, START_DATE, TIME_STEP or WINDOW_LENGTH.")
     for i in range(num_windows):
         yield sync_data[:, i:i + T]
 
 
-def argumented_matrix_generator(Dg: np.ndarray, Df: np.ndarray, m: float = 1.0) -> Tuple[np.ndarray, np.ndarray]:
+def get_argumented_matrices(Dg: np.ndarray, Df: np.ndarray, m: float = 1.0, dup_g: int = 1) -> Tuple[np.ndarray, np.ndarray]:
     """
     The shape of status matrix "Dg" is (N1, T). The shape of factor matrix "Df"
     is (N2, T). Generally, N1 >> N2. The amplitude of noise "m" is 1.0 by
@@ -67,6 +81,10 @@ def argumented_matrix_generator(Dg: np.ndarray, Df: np.ndarray, m: float = 1.0) 
     # check the shape of status and factor matrices
     if Dg.shape[1] != Df.shape[1]:
         raise ValueError("The numbers of samplings of status and factors are different.")
+    # step 0: duplicate the status matrix to satisfy that N1 >> N2 and add noise
+    Dg = np.tile(Dg, (dup_g, 1))
+    Noise = np.random.normal(0.0, 1.0, size=Dg.shape)
+    Dg = Dg + m * Noise
     # step 1: duplicate the factor matrix to match the size of status matrix
     k = Dg.shape[0] // Df.shape[0]
     Dc = np.tile(Df, (k, 1))
@@ -75,10 +93,10 @@ def argumented_matrix_generator(Dg: np.ndarray, Df: np.ndarray, m: float = 1.0) 
     Ef = Dc + m * Noise
     # calculate signal to noise ratio if needed
     # s2n_ratio = np.trace(np.matmul(Ef, Ef.T)) / np.trace(np.matmul(N, N.T)) / (m * m)
-    # step 3: generate the argumented matrix "A" and reference argumented matrix "An"
-    A = np.concatenate((Dg, Ef), axis=0)
-    An = np.concatenate((Dg, Noise), axis=0)
-    return A, An
+    # step 3: generate the argumented matrix "Ad" and reference argumented matrix "Ar"
+    Ad = np.concatenate((Dg, Ef), axis=0)
+    Ar = np.concatenate((Dg, Noise), axis=0)
+    return Ad, Ar
 
 
 def single_ring(X: np.ndarray, L: int = 1) -> float:
@@ -114,55 +132,81 @@ def single_ring(X: np.ndarray, L: int = 1) -> float:
     return msr
 
 
-def get_msr(sync_data: np.ndarray, window_length: int) -> np.ndarray:
+def get_msr(sync_data: np.ndarray,
+            window_length: int,
+            status_indices: np.ndarray,
+            factor_indices: np.ndarray,
+            dup_g: int = 1) -> Tuple[np.ndarray, np.ndarray]:
     """
     This function is used to calculate the msr array from the synchronized data.
     """
-    msr_list = []
+    msr_ad_list, msr_ar_list = [], []
     window_generator = get_window(sync_data, window_length)
+    # display the progress bar
     num_windows = sync_data.shape[1] - window_length + 1
     with tqdm(total=num_windows) as bar:
+        # get data and move the window
         for windowed_data in window_generator:
-            msr = single_ring(windowed_data)
-            msr_list.append(msr)
+            # split the windowed data matrix into the status matrix and the factor matrix
+            Dg = windowed_data[status_indices, :]
+            Df = windowed_data[factor_indices, :]
+            # generate the argumented matrix and the reference argumented matrix
+            Ad, Ar = get_argumented_matrices(Dg, Df, dup_g=dup_g)
+            # calculate the MSR of the two matrices
+            msr_ad = single_ring(Ad)
+            msr_ad_list.append(msr_ad)
+            msr_ar = single_ring(Ar)
+            msr_ar_list.append(msr_ar)
+            # update the progress bar
             bar.update()
-    msr_array = np.array(msr_list)
-    return msr_array
+    # convert lists to numpy arrays
+    msr_ad_array = np.array(msr_ad_list)
+    msr_ar_array = np.array(msr_ar_list)
+    return msr_ad_array, msr_ar_array
 
 
 if __name__ == "__main__":
-    # check parameters
-    N_SAMPLES = int((STOP_TIME - START_TIME) / TIME_STEP + 1)
-    if N_SAMPLES < WINDOW_LENGTH:
-        raise ValueError("The synchronized data samples are not enough to analyze.\
-                          Please change STOP_DATE, START_DATE, TIME_STEP or T.")
     # read the csv files and synchoronize data
     time_seq, sync_data = synchronize_data(FILE_DIR, MEASUREMENTS, START_TIME, STOP_TIME, N_SAMPLES)
     print("\033[32mLoaded all csv files successfully.\033[0m")
     # get windowed data matrix and calculate msr
-    msr_array = get_msr(sync_data, WINDOW_LENGTH)
+    msr_ad_array, msr_ar_array = get_msr(sync_data, WINDOW_LENGTH, STATUS_INDICES, FACTOR_INDICES, DUP_STATUS)
     print("\033[32mCalculated the msr array successfully.\033[0m")
-    # draw the figures
-    # draw the msr figure
-    time_seq_msr = time_seq[0:-WINDOW_LENGTH + 1]
+    # deal with MSR of the argumented matrix and the reference matrix
+    msr_difference = msr_ar_array - msr_ad_array
+
+    # draw the grand figure
+    time_seq_msr = time_seq[WINDOW_LENGTH - 1:]
+    """
     plt.subplot(4, 6, 1)
-    plt.title("MSR")
-    plt.plot(time_seq_msr, msr_array)
+    plt.title("MSR difference")
+    # plt.plot(time_seq_msr, msr_ad_array, linewidth=1, label='real data')
+    # plt.plot(time_seq_msr, msr_ar_array, linewidth=1, label='reference')
+    plt.plot(time_seq_msr, msr_difference, linewidth=1)
     plt.xticks(time_seq_msr[[0, -1]])
-    # draw the data figures
     for i, title in enumerate(MEASUREMENTS):
         plt.subplot(4, 6, i + 2)
         plt.title(title)
         plt.plot(time_seq, sync_data[i])
         plt.xticks(time_seq[[0, -1]])
     plt.show()
+    """
 
-    # tmps
-    '''
-    Xg = np.random.normal(12.34, 65.43, size=(80, 200))
-    Xf = np.random.normal(9.876, 6.543, size=(6, 200))
-    ar, ra = argumented_matrix_generator(Xg, Xf)
-    msr_ar = single_ring(ar, 1)
-    msr_ra = single_ring(ra, 1)
-    print(msr_ar, msr_ra)
-    '''
+    # draw the MSR figure
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    # ax2.plot(time_seq, sync_data[10] - sync_data[0], linewidth=1, label='delta_T', color='b', linestyle=':')
+    ax2.plot(time_seq, sync_data[0], linewidth=1, label='T_env', color='c', linestyle=':')
+    ax2.plot(time_seq, sync_data[10], linewidth=1, label='T_infrared', color='b', linestyle=':')
+    ax2.plot(time_seq, sync_data[11], linewidth=1, label='T_A', color='y', linestyle=':')
+    ax2.plot(time_seq, sync_data[12], linewidth=1, label='T_B', color='g', linestyle=':')
+    ax2.plot(time_seq, sync_data[13], linewidth=1, label='T_C', color='r', linestyle=':')
+    ax2.set_ylabel("Temperature")
+    # ax1.plot(time_seq_msr, msr_ad_array, linewidth=1, label='real data')
+    # ax1.plot(time_seq_msr, msr_ar_array, linewidth=1, label='reference')
+    ax1.plot(time_seq_msr, msr_difference, linewidth=1, label='MSR difference', color='g')
+    ax1.set_xlabel("Time")
+    ax1.set_ylabel("MSR Difference")
+    ax1.grid()
+    fig.legend(loc='upper right')
+    plt.show()
