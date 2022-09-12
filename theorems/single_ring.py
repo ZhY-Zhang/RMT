@@ -9,7 +9,7 @@ Please notice that N <= T, that is, 0 < c <= 1.
 # parameters
 N = 400
 T = 2000
-L = 4
+L = 1
 c = N / T
 r = np.power(1 - c, L / 2)
 
@@ -38,4 +38,5 @@ plt.scatter(ei.real, ei.imag, 2, 'r', label="eigenvalues")
 plt.plot(x2, y2, linestyle='--', color='g', label="MSR")
 plt.axis('equal')
 plt.legend()
+plt.title("Single Ring Theorem - Eigenvalue Distribution")
 plt.show()

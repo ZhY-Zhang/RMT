@@ -24,4 +24,5 @@ y = np.sqrt((b - x) * (x - a)) / (2 * np.pi * x * c * var)
 # draw the figure
 plt.hist(eigs, bins=N // 20, density=True)
 plt.plot(x, y)
+plt.title("M-P Law")
 plt.show()
