@@ -10,13 +10,14 @@ comments carefully is you need to use them.
 
 
 def synchronize_data(file_directory: Path, file_names: List[str], start_time: pd.Timestamp, stop_time: pd.Timestamp,
-                     num_samples: int) -> Tuple[np.ndarray, np.ndarray]:
+                     time_step: pd.Timedelta) -> Tuple[np.ndarray, np.ndarray]:
     """
     This function is used to synchronize the sensor data of the transformer. It
     applies linear interpolation to the data. It returns a 2-D numpy array. The
     rows represent different sensors while the columns represent different time.
     """
     sync_data = []
+    num_samples = int((stop_time - start_time) / time_step + 1)
     time_seq = pd.date_range(start_time, stop_time, num_samples)
     time_int_seq = np.array(time_seq, dtype=np.int64)
     for name in file_names:

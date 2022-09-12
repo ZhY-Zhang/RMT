@@ -1,3 +1,4 @@
+from cProfile import label
 import warnings
 from pathlib import Path
 
@@ -28,32 +29,43 @@ STOP_TIME = pd.Timestamp(2021, 7, 1)
 WINDOW_PERIOD = pd.Timedelta(days=14)
 STATUS_LIST = ["T_infrared", "T_A", "T_B", "T_C"]
 FACTOR_LIST = ["M_env"]
-N_WINDOW: int = 16
-# calculate parameters
-STATUS_INDICES = np.array([MEASUREMENTS.index(m) for m in STATUS_LIST])
-FACTOR_INDICES = np.array([MEASUREMENTS.index(m) for m in FACTOR_LIST])
-T_WINDOW = 2 * N_WINDOW * len(STATUS_INDICES)
-TIME_STEP = WINDOW_PERIOD / T_WINDOW
-N_SAMPLES = int((STOP_TIME - START_TIME) / TIME_STEP + 1)
-print("Window Length:", T_WINDOW)
+EXPECTED_SIZE: int = 60
+# plot
+AX2_LIST = ['T_env', 'T_oil', 'T_infrared', 'T_A', 'T_B', 'T_C']
 
 if __name__ == "__main__":
+    # calculate parameters
+    idx_g = np.array([MEASUREMENTS.index(m) for m in STATUS_LIST])
+    idx_f = np.array([MEASUREMENTS.index(m) for m in FACTOR_LIST])
+    Tw = Nw = EXPECTED_SIZE
+    time_step = WINDOW_PERIOD / Tw
     # read the csv files and synchoronize data
-    time_seq, sync_data = synchronize_data(FILE_DIR, MEASUREMENTS, START_TIME, STOP_TIME, N_SAMPLES)
+    time_seq, sync_data = synchronize_data(FILE_DIR, MEASUREMENTS, START_TIME, STOP_TIME, time_step)
     print("\033[32mLoaded all csv files successfully.\033[0m")
     # get windowed data matrix and calculate msr
-    msr_ad_array, msr_ar_array = get_msr(sync_data, N_WINDOW, T_WINDOW, STATUS_INDICES, FACTOR_INDICES)
+    msrs_dat, msrs_arg = get_msr(sync_data, Nw, Tw, idx_g, idx_f)
+    msr_difference = msrs_arg - msrs_dat
     print("\033[32mCalculated the msr array successfully.\033[0m")
-    # deal with MSR of the argumented matrix and the reference matrix
-    msr_difference = msr_ar_array - msr_ad_array
 
-    # draw the grand figure
-    time_seq_msr = time_seq[T_WINDOW - 1:]
+    # draw the MSR figure
+    time_seq_msr = time_seq[Tw - 1:]
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    ax1.plot(time_seq_msr, msr_difference, linewidth=1, label='MSR difference', color='g')
+    for m in AX2_LIST:
+        ax2.plot(time_seq, sync_data[MEASUREMENTS.index(m)], label=m, linestyle=':', linewidth=1)
+    ax1.set_xlabel("Time")
+    ax1.set_ylabel("MSR Difference")
+    ax1.grid()
+    ax2.set_ylabel("Temperature")
+    fig.legend(loc='upper right')
+    plt.show()
     """
+    # draw the grand figure
     plt.subplot(4, 6, 1)
     plt.title("MSR difference")
-    # plt.plot(time_seq_msr, msr_ad_array, linewidth=1, label='real data')
-    # plt.plot(time_seq_msr, msr_ar_array, linewidth=1, label='reference')
+    # plt.plot(time_seq_msr, msrs_dat, linewidth=1, label='real data')
+    # plt.plot(time_seq_msr, msrs_arg, linewidth=1, label='reference')
     plt.plot(time_seq_msr, msr_difference, linewidth=1)
     plt.xticks(time_seq_msr[[0, -1]])
     for i, title in enumerate(MEASUREMENTS):
@@ -63,24 +75,3 @@ if __name__ == "__main__":
         plt.xticks(time_seq[[0, -1]])
     plt.show()
     """
-
-    # draw the MSR figure
-    fig, ax1 = plt.subplots()
-    ax2 = ax1.twinx()
-    # ax2.plot(time_seq, sync_data[10] - sync_data[0], linewidth=1, label='delta_T', color='b', linestyle=':')
-    # ax2.plot(time_seq, sync_data[0], linewidth=1, label='T_env', color='c', linestyle=':')
-    # ax2.plot(time_seq, sync_data[8], linewidth=1, label='T_oil', color='black', linestyle=':')
-    ax2.plot(time_seq, sync_data[1], linewidth=1, label='M_env', color='c', linestyle=':')
-    ax2.plot(time_seq, sync_data[10], linewidth=1, label='T_infrared', color='b', linestyle=':')
-    ax2.plot(time_seq, sync_data[11], linewidth=1, label='T_A', color='y', linestyle=':')
-    ax2.plot(time_seq, sync_data[12], linewidth=1, label='T_B', color='g', linestyle=':')
-    ax2.plot(time_seq, sync_data[13], linewidth=1, label='T_C', color='r', linestyle=':')
-    ax2.set_ylabel("Temperature")
-    # ax1.plot(time_seq_msr, msr_ad_array, linewidth=1, label='real data')
-    # ax1.plot(time_seq_msr, msr_ar_array, linewidth=1, label='reference')
-    ax1.plot(time_seq_msr, msr_difference, linewidth=1, label='MSR difference', color='g')
-    ax1.set_xlabel("Time")
-    ax1.set_ylabel("MSR Difference")
-    ax1.grid()
-    fig.legend(loc='upper right')
-    plt.show()
