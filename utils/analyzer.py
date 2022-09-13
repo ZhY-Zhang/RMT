@@ -82,11 +82,37 @@ def single_ring(X: np.ndarray, L: int = 1) -> float:
     return msr
 
 
-def get_msr(sync_data: np.ndarray, Nw: int, Tw: int, idx_g: np.ndarray, idx_f: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def get_msr_array(sync_data: np.ndarray, Nw: int, Tw: int) -> np.ndarray:
+    """
+    This function is used to calculate the MSR array of the synchronized data
+    matrix, that is, "sync_data". Remember to input proper window size (Nw, Tw)
+    for better performance.
+    """
+    # calculate necessary arguments
+    window_generator = get_window(sync_data, Tw)
+    num_windows = sync_data.shape[1] - Tw + 1
+    msrs = np.empty(num_windows)
+    dup = Nw // sync_data.shape[0]
+    # output matrix size
+    print("Matrix size: ({}, {})".format(dup * sync_data.shape[0], Tw))
+    # display the progress bar
+    with tqdm(total=num_windows) as bar:
+        # get data and move the window
+        for i, windowed_data in enumerate(window_generator):
+            windowed_data = np.tile(windowed_data, (dup, 1))
+            noise = np.random.normal(0.0, 1.0, size=windowed_data.shape)
+            windowed_data = windowed_data + 1.0 * noise
+            msrs[i] = single_ring(windowed_data)
+            bar.update()
+    return msrs
+
+
+def get_msr_arrays(sync_data: np.ndarray, Nw: int, Tw: int, idx_g: np.ndarray,
+                   idx_f: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
     This function is used to calculate the MSR array of the data matrix and the
     reference matrix, which are generated based on the synchronized data, that
-    is, "sync_data". Remember to input proper window size "(Nw, Tw)" for better
+    is, "sync_data". Remember to input proper window size (Nw, Tw) for better
     performance.
     """
     # calculate necessary arguments
@@ -96,8 +122,8 @@ def get_msr(sync_data: np.ndarray, Nw: int, Tw: int, idx_g: np.ndarray, idx_f: n
     msrs_arg = np.empty(num_windows)
     dup_g = Nw // len(idx_g) // 2
     dup_c = Nw // len(idx_f) // 2
-    # output window size
-    print("Window size: ({}, {})".format(dup_g * len(idx_g) + dup_c * len(idx_f), Tw))
+    # output matrix size
+    print("Argumented matrix size: ({}, {})".format(dup_g * len(idx_g) + dup_c * len(idx_f), Tw))
     # display the progress bar
     with tqdm(total=num_windows) as bar:
         # get data and move the window
