@@ -26,9 +26,10 @@ def analyzer(file_path: Path, save_path: Path, Tw: int, display: bool = False, s
     msr_array = fast_msr_array(sync_data, T_WINDOW)
     print("\033[32mCalculated the msr array successfully.\033[0m")
     # plot the MSR curve
+    name = file_path.stem
     time_seq_msr = time_seq[T_WINDOW - 1:]
     plt.subplot(3, 1, 1)
-    plt.title("MSR {}".format("A-10"))
+    plt.title("{} - MSR".format(name))
     plt.plot(time_seq_msr, msr_array, label='MSR', linewidth=1)
     plt.xlim(time_seq[0], time_seq[-1])
     # plot the voltage curves
