@@ -5,8 +5,8 @@ import numpy as np
 from scipy.stats import unitary_group
 """
 This file contains the core functions to analyze the data by RMT. Generally,
-the only function you need to import is the "get_msr" function. Remember to
-input a proper window size to get better performance.
+the only function you need to import is the "get_msr_array" or "get_msr_arrays"
+function. Remember to input a proper window size to get better performance.
 """
 
 
@@ -82,27 +82,32 @@ def single_ring(X: np.ndarray, L: int = 1) -> float:
     return msr
 
 
-def get_msr_array(sync_data: np.ndarray, Nw: int, Tw: int) -> np.ndarray:
+def get_msr_array(sync_data: np.ndarray, expected_size: int, Tw: int) -> np.ndarray:
     """
     This function is used to calculate the MSR array of the synchronized data
-    matrix, that is, "sync_data". Remember to input proper window size (Nw, Tw)
-    for better performance.
+    matrix. Choose a porper expected size for better performance.
+
+    :param sync_data: the synchronized data matrix, a 2-D numpy array
+    :param expected_size: the expected size of the duplicated matrix
+    :param Tw: the window length
+    :returns: the MSR array of the raw data, a 1-D numpy array
     """
     # calculate necessary arguments
     window_generator = get_window(sync_data, Tw)
     num_windows = sync_data.shape[1] - Tw + 1
     msrs = np.empty(num_windows)
-    dup = Nw // sync_data.shape[0]
-    # output matrix size
-    print("Matrix size: ({}, {})".format(dup * sync_data.shape[0], Tw))
+    dup_n = expected_size // sync_data.shape[0]
+    dup_t = int(np.ceil(expected_size / Tw))
+    # output matrix size for analysis
+    print("Matrix size for analysis: ({}, {})".format(dup_n * sync_data.shape[0], dup_t * Tw))
     # display the progress bar
     with tqdm(total=num_windows) as bar:
         # get data and move the window
         for i, windowed_data in enumerate(window_generator):
-            windowed_data = np.tile(windowed_data, (dup, 1))
-            noise = np.random.normal(0.0, 1.0, size=windowed_data.shape)
-            windowed_data = windowed_data + 1.0 * noise
-            msrs[i] = single_ring(windowed_data)
+            dup_data = np.tile(windowed_data, (dup_n, dup_t))
+            noise = np.random.normal(0.0, 1.0, size=dup_data.shape)
+            noise_data = dup_data + 1.0 * noise
+            msrs[i] = single_ring(noise_data)
             bar.update()
     return msrs
 
