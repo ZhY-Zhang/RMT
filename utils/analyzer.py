@@ -82,7 +82,7 @@ def single_ring(X: np.ndarray, L: int = 1) -> float:
     return msr
 
 
-def get_msr_array(sync_data: np.ndarray, expected_size: int, Tw: int) -> np.ndarray:
+def get_msr_array(sync_data: np.ndarray, Tw: int, expected_size: int) -> np.ndarray:
     """
     This function is used to calculate the MSR array of the synchronized data
     matrix. Choose a porper expected size for better performance.
@@ -93,17 +93,19 @@ def get_msr_array(sync_data: np.ndarray, expected_size: int, Tw: int) -> np.ndar
     :returns: the MSR array of the raw data, a 1-D numpy array
     """
     # calculate necessary arguments
-    window_generator = get_window(sync_data, Tw)
     num_windows = sync_data.shape[1] - Tw + 1
     msrs = np.empty(num_windows)
     dup_n = expected_size // sync_data.shape[0]
     dup_t = int(np.ceil(expected_size / Tw))
+    N = dup_n * sync_data.shape[0]
+    T = dup_t * Tw
     # output matrix size for analysis
-    print("Matrix size for analysis: ({}, {})".format(dup_n * sync_data.shape[0], dup_t * Tw))
+    print("Matrix size for analysis: ({}, {})".format(N, T))
     # display the progress bar
     with tqdm(total=num_windows) as bar:
         # get data and move the window
-        for i, windowed_data in enumerate(window_generator):
+        for i in range(num_windows):
+            windowed_data = sync_data[:, i:i+Tw]
             dup_data = np.tile(windowed_data, (dup_n, dup_t))
             noise = np.random.normal(0.0, 1.0, size=dup_data.shape)
             noise_data = dup_data + 1.0 * noise

@@ -3,5 +3,3 @@ build/
 cython/
 
 *.pyd
-
-old_fast_analyzer.py

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from utils.file_processor import simple_loader, M_RECORDER
-from utils.fast_analyzer import fast_msr_array
+from utils.simple_analyzer import fast_msr_array
 """
 This file analyzes the fault recorder data.
 """
@@ -23,11 +23,11 @@ def analyzer(file_path: Path, save_path: Path, Tw: int, display: bool = False, s
     time_seq, sync_data = simple_loader(file_path)
     print("\033[32mLoaded all csv files successfully.\033[0m")
     # get windowed data matrix and calculate msr
-    msr_array = fast_msr_array(sync_data, T_WINDOW)
+    msr_array = fast_msr_array(sync_data, Tw)
     print("\033[32mCalculated the msr array successfully.\033[0m")
     # plot the MSR curve
     name = file_path.stem
-    time_seq_msr = time_seq[T_WINDOW - 1:]
+    time_seq_msr = time_seq[Tw - 1:]
     plt.subplot(3, 1, 1)
     plt.title("{} - MSR".format(name))
     plt.plot(time_seq_msr, msr_array, label='MSR', linewidth=1)
