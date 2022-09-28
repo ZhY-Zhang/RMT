@@ -1,6 +1,7 @@
-from tqdm import tqdm
+from typing import Tuple
 
 import numpy as np
+from scipy.stats import unitary_group
 """
 This file contains the speed boosted version of some analysis functions. Some
 of them lack type checking and may cause unexpected errors. Check the input
@@ -8,42 +9,48 @@ parameters carefully before using them.
 """
 
 
-def fast_single_ring(X: np.ndarray) -> float:
+def single_ring(X: np.ndarray, U: np.ndarray) -> float:
     """
     This function is a speed boosted version of the "single_ring" function. It
-    doesn't check the size of input matrices and doesn't support singular value
-    equivalent matrices.
+    doesn't check the size of input matrices and doesn't support multiple
+    singular value equivalent matrices.
     """
-    # TODO: single ring theorem
     # step 1: normalize the data matrix X row by row
     X1 = X.T
     X2 = (X1 - np.mean(X1, axis=0)) / np.std(X1, axis=0)
     np.nan_to_num(X2, copy=False)
     Xn = X2.T
-    # step 2: calculate the singular values of Xn and arrange them as a diagonal matrix
-    Xu = np.diag(np.linalg.svd(Xn)[1])
-    # step 3: normalize Xu
+    # step 2: calculate the singular values of the Xn and arrange them as a diagonal matrix
+    sv = np.diag(np.linalg.svd(Xn)[1])
+    # step 3: calculate the SVE matrix of Xn
+    Xu = np.matmul(sv, U)
+    # step 4: normalize Xu
     Zn = (Xu - np.mean(Xu)) / np.std(Xu) / np.sqrt(X.shape[0])
-    # step 4: calculate the spectrum of Xu and the MSR
+    # step 5: calculate the spectrum of Xu and the MSR
     ei = np.linalg.eigvals(Zn)
     msr = np.mean(np.abs(ei))
-    return msr
+    return msr, Xn
 
 
-def fast_msr_array(sync_data: np.ndarray, Tw: int) -> np.ndarray:
+def get_msr_array(sync_data: np.ndarray, Tw: int, expected_size: int, amplitude: float = 1.0) -> Tuple[np.ndarray, np.ndarray]:
     """
     This function is a speed boosted version of the "get_msr_array" function.
     """
     # calculate necessary arguments
     num_windows = sync_data.shape[1] - Tw + 1
     msrs = np.empty(num_windows)
+    dup_n = expected_size // sync_data.shape[0]
+    dup_t = int(np.ceil(expected_size / Tw))
+    N = dup_n * sync_data.shape[0]
+    T = dup_t * Tw
+    U = unitary_group.rvs(N)
+    noise = np.random.normal(0.0, 1.0, size=(N, T))
+    unified_data = np.empty((num_windows, N, T))
     # output matrix size for analysis
-    print("Matrix size for analysis: ({}, {})".format(sync_data.shape[0], Tw))
-    # display the progress bar
-    with tqdm(total=num_windows) as bar:
-        # get data and move the window
-        for i in range(num_windows):
-            windowed_data = sync_data[:, i:i + Tw]
-            msrs[i] = fast_single_ring(windowed_data)
-            bar.update()
-    return msrs
+    # TODO: print("Matrix size for analysis: ({}, {})".format(N, T))
+    for i in range(num_windows):
+        windowed_data = sync_data[:, i:i + Tw]
+        dup_data = np.tile(windowed_data, (dup_n, dup_t))
+        noise_data = dup_data + amplitude * noise
+        msrs[i], unified_data[i] = single_ring(noise_data, U)
+    return msrs, unified_data
