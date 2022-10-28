@@ -4,3 +4,4 @@ cython/
 deprecated/
 
 *.pyd
+*.png

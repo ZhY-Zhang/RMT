@@ -19,7 +19,7 @@ __M_RECORDER = ["time", "IA1", "IB1", "IC1", "IZ1", "VefA1", "VefB1", "VefC1", "
 M_RECORDER = ["IA1", "IB1", "IC1", "IZ1", "VefA1", "VefB1", "VefC1"]
 
 
-def spliter(file_dir: Path, raw_file: str):
+def splitter(file_dir: Path, raw_file: str):
     """
     This function is designed for "主变设备状态数据".\n
     The function splits a complex csv file to several small ones, each of which
@@ -43,7 +43,7 @@ def synchronizer(file_directory: Path, file_names: List[str], start_time: pd.Tim
     """
     This function is designed for "主变设备状态数据".\n
     The function loads multiple csv files whose data may not be synchronized or
-    evenly sampled.It applies linear interpolation to the data. It returns a
+    evenly sampled. It applies linear interpolation to the data. It returns a
     time sequence (1-D array, T) and a synchronized data matrix (2-D array, (N,
     T)).
     """

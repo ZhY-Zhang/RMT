@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Tuple
+from tqdm import tqdm
 from multiprocessing import Pool
 
 import numpy as np
@@ -93,16 +94,20 @@ def analyzer(file_path: Path) -> Tuple[str, bool]:
 
 
 if __name__ == "__main__":
-    file_paths = FILE_DIR.glob("*.csv")
+    file_paths = list(FILE_DIR.glob("*.csv"))
     fail_paths = []
     with Pool(processes=PROCESSES) as pool:
         results = pool.imap_unordered(analyzer, file_paths)
-        for file_path, finish in results:
-            if finish:
-                print("\033[32mFile \"{}\" is processed.\033[0m".format(file_path))
-            else:
-                fail_paths.append(file_path)
-                print("\033[31mFile \"{}\" has wrong format.\033[0m".format(file_path))
+        with tqdm(total=len(file_paths)) as bar:
+            for file_path, finish in results:
+                """ TODO: find a better way to print information and show the progress bar.
+                if finish:
+                    print("\033[32mFile \"{}\" is processed.\033[0m".format(file_path))
+                else:
+                    fail_paths.append(file_path)
+                    print("\033[31mFile \"{}\" has wrong format.\033[0m".format(file_path))
+                """
+                bar.update()
     # print files with wrong format
     if len(fail_paths) > 0:
         print("\033[31mThe files with wrong format are listed below.\033[0m")

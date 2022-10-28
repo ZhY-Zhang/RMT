@@ -1,0 +1,58 @@
+dag {
+bb="-5.771,-9.413,6.148,6.775"
+I_1A [pos="-1.036,-4.465"]
+I_1B [pos="0.270,-4.374"]
+I_1C [pos="4.049,-4.329"]
+I_2A [pos="1.670,-4.351"]
+I_2B [pos="2.906,-4.283"]
+I_2C [pos="5.518,-4.420"]
+J_time [pos="0.340,-8.478"]
+J_weekday [pos="3.932,-8.364"]
+K_cool [latent,pos="-2.552,-2.003"]
+K_heat [latent,pos="0.060,-1.912"]
+K_load [latent,pos="2.253,-6.654"]
+T_A [pos="-0.173,0.277"]
+T_B [pos="2.229,0.505"]
+T_C [pos="4.772,0.459"]
+T_breather [pos="-3.695,3.173"]
+T_env [pos="-3.578,-8.273"]
+T_infrared [pos="-2.506,0.231"]
+T_oil [pos="-5.165,0.277"]
+I_1A -> K_heat
+I_1A -> T_A
+I_1B -> K_heat
+I_1B -> T_B
+I_1C -> K_heat
+I_1C -> T_C
+I_2A -> K_heat
+I_2A -> T_A
+I_2B -> K_heat
+I_2B -> T_B
+I_2C -> K_heat
+I_2C -> T_C
+J_time -> K_cool
+J_time -> K_load
+J_weekday -> K_load
+K_cool -> T_A
+K_cool -> T_B
+K_cool -> T_C
+K_cool -> T_infrared
+K_cool -> T_oil
+K_heat -> T_A
+K_heat -> T_B
+K_heat -> T_C
+K_heat -> T_infrared
+K_heat -> T_oil
+K_load -> I_1A
+K_load -> I_1B
+K_load -> I_1C
+K_load -> I_2A
+K_load -> I_2B
+K_load -> I_2C
+T_C -> T_B
+T_env -> K_cool
+T_env -> K_load
+T_env -> T_breather
+T_infrared -> T_breather
+T_oil -> T_breather
+}
