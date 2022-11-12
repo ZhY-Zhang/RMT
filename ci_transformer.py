@@ -65,7 +65,7 @@ def causal_loader(dataset_path: Path, dataset_files: List[str], start_time: pd.T
 if __name__ == "__main__":
     # TODO: improve dag format convertion
     # O. Convert graph format.
-    with open("dag.txt") as f:
+    with open("dag_transformer.txt") as f:
         s = f.readlines()
     s1 = "digraph {"
     for li in s:
@@ -74,7 +74,7 @@ if __name__ == "__main__":
             s1 += l1
     s1 += '}'
     GML_GRAPH = s1
-    # print(GML_GRAPH)
+    print(GML_GRAPH)
 
     # I. Create a causal model from the data and given graph.
     df = causal_loader(DATASET_PATH, DATASET_FILES, START_TIME, STOP_TIME, SAMPLE_PERIOD)
